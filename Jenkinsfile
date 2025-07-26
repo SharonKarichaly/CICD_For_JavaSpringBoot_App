@@ -33,7 +33,7 @@ pipeline {
     }
     stage('Build and Push Docker Image') {
         environment {
-            REGISTRY_CREDENTIALS = credentials('dockerhub-credentials') // Jenkins credential ID
+            REGISTRY_CREDENTIALS = credentials('docker-cred') // Jenkins credential ID
         }
         steps {
             script {
@@ -41,7 +41,7 @@ pipeline {
 
                 sh "docker build -t ${dockerImage} ."
 
-                withDockerRegistry([credentialsId: 'dockerhub-credentials', url: 'https://index.docker.io/v1/']) {
+                withDockerRegistry([credentialsId: 'docker-cred', url: 'https://index.docker.io/v1/']) {
                     sh "docker push ${dockerImage}"
                 }
             }
