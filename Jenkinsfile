@@ -11,7 +11,7 @@ pipeline {
     stage('Checkout') {
       steps {
         sh 'echo passed'
-        git branch: 'main', url: 'https://github.com/SharonKarichaly/CICD_For_JavaSpringBoot_App.git'
+        git branch: 'master', url: 'https://github.com/SharonKarichaly/CICD_For_JavaSpringBoot_App.git'
       }
     }
     stage('Build and Test') {
