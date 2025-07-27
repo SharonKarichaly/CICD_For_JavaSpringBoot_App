@@ -10,10 +10,10 @@ pipeline {
   stages {
     stage('Clean Workspace') {
       steps {
-        deleteDir() // Wipe workspace to remove permission issues
+        sh 'rm -rf target'
       }
     }
-    
+
     stage('Checkout') {
       steps {
         sh 'echo passed'
