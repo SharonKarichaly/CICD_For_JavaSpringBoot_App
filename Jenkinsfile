@@ -8,6 +8,13 @@ pipeline {
 }
 
   stages {
+    stage('Clean Workspace') {
+      steps {
+        deleteDir() // Wipe workspace to remove permission issues
+      }
+    }
+
+  stages {
     stage('Checkout') {
       steps {
         sh 'echo passed'
