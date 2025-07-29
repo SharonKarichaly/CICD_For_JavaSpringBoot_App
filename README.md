@@ -18,11 +18,17 @@ Jenkins Pipeline
 
 The Jenkinsfile defines an automated pipeline with these stages:
 Clean Workspace: Removes previous build artifacts.
+
 Checkout: Pulls the latest code from GitHub.
+
 Build and Test: Uses Maven to compile and test the code, producing a JAR file.
+
 Static Code Analysis: Integrates with SonarQube for code quality checks.
+
 Build and Push Docker Image: Builds a Docker image from the JAR and pushes it to Docker Hub.
+
 Update Deployment File: Updates the Kubernetes deployment manifest with the new image tag and commits this back to the repository.
+
 Docker Support
 
 The Dockerfile builds a Docker image for the application and exposes port 8080.
