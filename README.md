@@ -6,6 +6,7 @@ Project Structure
 This project, CICD_For_JavaSpringBoot_App, demonstrates a complete CI/CD (Continuous Integration/Continuous Deployment) pipeline for a Java Spring Boot application. Here’s a breakdown of its main components and purpose:
 
 Main Purpose
+
 Automate the process of building, testing, analyzing, packaging, containerizing, and deploying a Spring Boot application using Jenkins and Docker, with code quality checks via SonarQube.
 
 Key Features
