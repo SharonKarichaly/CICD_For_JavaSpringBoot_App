@@ -17,6 +17,7 @@ The core code is a simple Spring Boot app exposing a /hello endpoint that return
 Jenkins Pipeline
 
 The Jenkinsfile defines an automated pipeline with these stages:
+
 Clean Workspace: Removes previous build artifacts.
 
 Checkout: Pulls the latest code from GitHub.
