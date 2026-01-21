@@ -1,25 +1,137 @@
-# .github/workflows/demo.yml
+# GitHub Actions CI/CD for CICD_For_JavaSpringBoot_App
+# Triggers: push and pull_request to main/master
+# Jobs:
+#  - build: compile & package with Maven, upload jar artifact
+#  - sonar: optional SonarQube scan if SONAR_HOST and SONAR_TOKEN are set
+#  - docker: build Docker image and push to Docker Hub
+#  - update-deployment: (only on main) replace placeholder in manifests/deployment.yaml and push commit
+name: CI/CD Pipeline
 
-name: CI
-
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
-    branches: [ "master" ]
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+permissions:
+  contents: write
+
+env:
+  IMAGE_NAME: ksharon/ultimate-cicd
+
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
+    name: Build & Package
     runs-on: ubuntu-latest
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      - name: Set up Java 17 and cache Maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build with Maven (run tests)
+        run: mvn -B -DskipTests=false clean package
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/*.jar
+
+  sonar:
+    name: SonarQube analysis (optional)
+    runs-on: ubuntu-latest
+    needs: build
+    # Run only if SONAR_HOST and SONAR_TOKEN secrets are configured
+    if: ${{ secrets.SONAR_HOST != '' && secrets.SONAR_TOKEN != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17 and cache Maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Run SonarQube analysis
+        env:
+          SONAR_HOST: ${{ secrets.SONAR_HOST }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -B sonar:sonar -Dsonar.host.url=${SONAR_HOST} -Dsonar.login=${SONAR_TOKEN}
+
+  docker:
+    name: Build & Push Docker image
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Download built jar from artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: .
+
+      - name: Prepare jar for Docker build
+        run: |
+          mkdir -p target
+          JAR=$(ls *.jar | head -n1)
+          # Ensure Dockerfile's expected path target/springbootapp-1.0.0.jar exists.
+          mv "$JAR" target/springbootapp-1.0.0.jar
+
+      - name: Build and push image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.run_number }}
+            ${{ env.IMAGE_NAME }}:latest
+
+  update-deployment:
+    name: Update Kubernetes deployment manifest
+    runs-on: ubuntu-latest
+    needs: docker
+    # Only update manifests when running on the main branch
+    if: ${{ github.ref == 'refs/heads/main' }}
+    steps:
+      - name: Checkout (with write token)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Replace placeholder in manifests/deployment.yaml and push
+        run: |
+          MANIFEST=manifests/deployment.yaml
+          if [ -f "$MANIFEST" ]; then
+            echo "Updating $MANIFEST with image tag ${{ github.run_number }}"
+            sed -i "s/replaceImageTag/${{ github.run_number }}/g" "$MANIFEST"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add "$MANIFEST"
+            git commit -m "ci: update deployment image to ${{ github.run_number }}" || echo "No changes to commit"
+            git push origin HEAD:${{ github.ref_name }}
+          else
+            echo "$MANIFEST not found — skipping manifest update"
+          fi
